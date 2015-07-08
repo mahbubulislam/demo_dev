@@ -1,0 +1,100 @@
+<?php
+function batch_demo_menu(){
+    $items = array();
+    $items['batch-demo'] = array(
+        'title' => t('Batch API Demo'),
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('batch_demo_form'),
+        'access arguments' => array('access content'),
+        'type' => MENU_NORMAL_ITEM,
+    );
+    return $items;
+}
+function batch_demo_form($form,&$form_state){
+   // $form = array();
+    $form['title'] = array(
+        '#title' => 'Title',
+        '#type' => 'textfield',
+        '#required' => TRUE,
+        '#description' => t('Enter the title of the pages.'),
+    );
+    $form['qty'] = array(
+        '#title' => 'Quantity',
+        '#type' => 'textfield',
+        '#required' => TRUE,
+        '#default_value' => 100,
+        '#description' => t('Enter the number of pages you want to create.'),
+    );
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => t('Create'),
+    );
+    return $form;
+}
+function batch_demo_form_validate(&$form, &$form_state){
+    if(!is_numeric($form_state['values']['qty'])){
+        form_set_error('qty','You must enter a numeric value for quantity.');
+    }
+}
+
+
+function batch_demo_form_submit(&$form, &$form_state){
+    batch_set(array(
+            'title' => t('Batch API Demo'), 'operations' => array(
+                // You can actually chain together multiple batch processes here
+                array('batch_demo_batch', array($form_state['values'] ['title'], $form_state['values']['qty'])), // Specify a callback for the batch
+            ),
+            'finished' => 'batch_demo_finished_batch', // Finished batch callback.
+        )
+    );
+    // Start the batch process and tell it where to send the user when it's done. In this case, we’ll send the user back to the batch-demo page.
+    batch_process('batch-demo');
+}
+
+function batch_demo_batch($title, $qty, &$context){
+    global $user;
+    /*
+    Set the number of nodes you want to create within a single iteration of the batch. This number
+    should be pretty low as it is the reason why we're creating the batch process in the first place.
+    */
+    $limit = 10;
+
+    /*
+    Set the variables that need to persist throughout the batch process. These need to be set inside
+    the $context array because that's what persists throughout the process.
+    */
+    if (!isset($context['sandbox']['progress'])) {
+        $context['sandbox']['progress'] = 0;
+        $context['sandbox']['title'] = $title;
+        $context['sandbox']['max'] = $qty;
+    }
+
+    // Create some new nodes based on current progress and the $limit per page load. It’s important that you get
+    // this right otherwise you can potentially get stuck in an infinite loop or the process won’t do what you want it to.
+    for($i = 0; $i < $limit; $i++){
+        if($context['sandbox']['progress'] < $context['sandbox']['max']){
+            $node = node_load();
+            $node->title = $context['sandbox']['title'].' #'.$context ['sandbox']['progress'];
+            $node->uid = $user->uid;
+            $node->type = 'page';
+           // node_save($node);
+            $context['sandbox']['progress']++; // Used to keep track of how many nodes we've already created.
+            $context['results'][] = check_plain($node->title); // Keep a running tab of all of the nodes created.
+            $context['message'] = "Created node " . $context ['sandbox']['progress'] . " of " . $context['sandbox']['max'];
+        }
+    }
+    // Check if the batch is finished
+    if ($context['sandbox']['progress'] < $context['sandbox'] ['max']) {
+        $context['finished'] = $context['sandbox']['progress'] / $context['sandbox']['max'];
+    }
+}
+
+
+function batch_demo_finished_batch($success, $results, $operations){
+    if ($success) {
+        $message = format_plural(count($results), 'One node created', '@count nodes created.');
+    } else {
+        $message = t('Finished with an error.');
+    }
+    drupal_set_message($message);
+}

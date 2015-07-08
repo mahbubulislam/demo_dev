@@ -1,0 +1,5 @@
+name = Search Demo
+description = Search Demo
+package = NETE
+version = 1.0
+core = 7.x

@@ -1,0 +1,59 @@
+<?php
+
+function search_demo_menu() {
+    $items['custom/node/search/%'] = array(
+        'page callback' => 'mymodule_do_search',
+        'page arguments' => array(3),
+        'access arguments' => array('access content'),
+        'type' => MENU_CALLBACK,
+    );
+    return $items;
+}
+
+
+
+function search_demo_content_form($form, &$form_state) {
+    $form['keys'] = array(
+        '#type' => 'textfield',
+        '#size' => 15,
+        '#required' => TRUE,
+    );
+    $form['submit'] = array(
+        '#type' => 'submit',
+        '#value' => 'Search',
+    );
+    return $form;
+}
+
+function search_demo_content_form_submit($form, &$form_state) {
+    drupal_goto('custom/node/search/' . $form_state['values']['keys']);
+}
+
+
+function mymodule_do_search($keys) {
+    // set the page title
+    drupal_set_title('FAQ search results');
+    // get the search results
+    $results = module_invoke('node', 'search_execute', $keys . " type:forum");
+    return theme('search_results', array('results' => $results));
+}
+
+
+function search_demo_block_info() {
+    $blocks['faq_search'] = array(
+        'info' => t('FAQ Search Block'),
+        'cache' => DRUPAL_NO_CACHE,
+    );
+    return $blocks;
+}
+
+function search_demo_block_view($delta = '') {
+    $block = array();
+    switch ($delta) {
+        case 'faq_search':
+            $block['title'] = 'Custom FAQ Search';
+            $block['content'] = drupal_render(drupal_get_form('search_demo_content_form'));
+            break;
+    }
+    return $block;
+}

@@ -1,0 +1,8 @@
+name = Comment Thread Sort
+description = Comment Thread Sorting by Fivestar Rateing
+core = 7.x
+version =1.0
+package = NETE
+dependencies[] = votingapi
+dependencies[] = fivestar
+dependencies[] = comment

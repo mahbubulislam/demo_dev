@@ -1,0 +1,5 @@
+name = Batch Operation Demo
+description = Batch Operation Demo
+package = NETE
+version = 1.0
+core = 7.x

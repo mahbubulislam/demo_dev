@@ -1,0 +1,228 @@
+<?php
+// Define the max depth of comment thread
+define('MAX_COMMENT_THREAD_DEPTH', 7);
+
+
+function comment_order_node_view($node, $view_mode) {
+
+  if(!isset($node->content['comments'])){
+    return 0;
+  }
+
+   if($node->type==='forum')
+   {
+       unset($node->content['comments']);
+
+       if ($node->comment && $view_mode == 'full' && node_is_page($node) && empty($node->in_preview)) {
+           $node->content['comments'] = custom_comment_node_page_additions($node);
+       }
+
+   }
+
+
+
+}
+
+
+function custom_comment_node_page_additions($node) {
+    $additions = array();
+
+    // Only attempt to render comments if the node has visible comments.
+    // Unpublished comments are not included in $node->comment_count, so show
+    // comments unconditionally if the user is an administrator.
+    if (($node->comment_count && user_access('access comments')) || user_access('administer comments')) {
+        $mode = variable_get('comment_default_mode_' . $node->type, COMMENT_MODE_THREADED);
+        $comments_per_page = variable_get('comment_default_per_page_' . $node->type, 50);
+        if ($cids = comment_get_thread($node, $mode, $comments_per_page)) {
+
+            $rated_cids = comment_get_thread_by_rating($node->nid,$cids);
+            $comments = comment_load_multiple($rated_cids);
+            comment_prepare_thread($comments);
+            $build = comment_view_multiple($comments, $node);
+            $build['pager']['#theme'] = 'pager';
+            $additions['comments'] = $build;
+        }
+    }
+
+    // Append comment form if needed.
+    if (user_access('post comments') && $node->comment == COMMENT_NODE_OPEN && (variable_get('comment_form_location_' . $node->type, COMMENT_FORM_BELOW) == COMMENT_FORM_BELOW)) {
+        $build = drupal_get_form("comment_node_{$node->type}_form", (object) array('nid' => $node->nid));
+        $additions['comment_form'] = $build;
+    }
+
+    if ($additions) {
+        $additions += array(
+            '#theme' => 'comment_wrapper__node_' . $node->type,
+            '#node' => $node,
+            'comments' => array(),
+            'comment_form' => array(),
+        );
+    }
+
+    return $additions;
+}
+
+
+function comment_get_thread_by_rating($nid,$cids){
+
+    $cids = array_flip($cids);
+    addRatingToCommentIDs($nid,$cids);
+
+    $finalSortedArray = array();
+    $cidArrayByDepth = array();
+
+    for($i=1;$i<MAX_COMMENT_THREAD_DEPTH;$i++){
+        $l = findThreadbyLevel($cids,$i);
+        if($l===false){
+            break;
+        }
+        else{
+
+            $cidArrayByDepth[]=sortByLevel($l);
+        }
+    }
+
+    if(count($cidArrayByDepth)>0){
+
+        foreach($cidArrayByDepth as $depth=>$arrCID){
+            if($depth == 0){
+                $finalSortedArray += $cidArrayByDepth[$depth];
+            }
+            else{
+                foreach($cidArrayByDepth[$depth-1]  as $cid=>$arr) {
+                    $nextLevel = findChildThread($cidArrayByDepth[$depth],$depth+1,$arr['Thread']);
+                    if($nextLevel !==false){
+                        $finalSortedArray =  array_insert_after($cid,$finalSortedArray,$nextLevel);
+                    }
+                }
+            }
+        }
+    }
+
+    return  array_keys($finalSortedArray);
+}
+
+/**
+ * Inserts a new key/value after the key in the array.
+ *
+ * @param $key  The key to insert after.
+ * @param $array  An array to insert in to.
+ * @param $new_key  The key/array to insert.
+ * @param $new_value  An value to insert.
+ *
+ * @return array
+ */
+
+function array_insert_after($key, array  $array, $new_key, $new_value = null) {
+
+    if (array_key_exists($key, $array)) {
+        $new = array();
+
+        foreach($array as $k => $value) {
+            $new[$k] = $value;
+            if ($k === $key) {
+                if (is_array($new_key) && count($new_key) > 0) {
+                    $new += $new_key;
+                } else {
+                    $new[$new_key] = $new_value;
+                }
+            }
+        }
+
+        return $new;
+    }
+    return false;
+}
+
+
+
+function findThreadbyLevel($cids,$level){
+
+    if($level==1){
+        $lengthToCheck =  $level * 2 ;
+    }
+    else{
+        $lengthToCheck =  ($level * 2) + ($level-1) ;
+    }
+
+    $levelArray = array();
+    foreach($cids as $cid=>$arr)
+    {
+        if(strlen($arr['Thread']) == $lengthToCheck ){
+            $levelArray[$cid] = $cids[$cid];
+        }
+    }
+    return count($levelArray)>0 ? $levelArray :false;
+}
+
+function findChildThread($cids, $level, $parentThread){
+    if($level==1){
+        $lengthToCheck =  $level * 2 ;
+    }
+    else{
+        $lengthToCheck =  ($level * 2) + ($level-1) ;
+    }
+
+    $levelArray = array();
+    foreach($cids as $cid=>$arr)
+    {
+        if((strlen($arr['Thread']) == $lengthToCheck) && (substr_startswith($arr['Thread'],$parentThread))){
+            $levelArray[$cid] = $cids[$cid];
+        }
+    }
+    return count($levelArray)>0?$levelArray:false;
+}
+
+function substr_startswith($haystack, $needle) {
+    return substr($haystack, 0, strlen($needle)) === $needle;
+}
+
+function sortByLevel($arr){
+    uasort($arr,'sort_by_user_rate');
+    return $arr;
+
+}
+
+function sort_by_user_rate($a,$b){
+    $a_weight = (is_array($a) && isset($a['UserRating'])) ? $a['UserRating'] : 0;
+    $b_weight = (is_array($b) && isset($b['UserRating'])) ? $b['UserRating'] : 0;
+    if ($a_weight == $b_weight) {
+        return 0;
+    }
+    return ($a_weight > $b_weight) ? -1 : 1;
+}
+
+
+function addRatingToCommentIDs($nodeId,&$arrCommentID){
+
+    $output = null;
+    $paramArray = array();
+
+    try{
+        if(strlen($nodeId)<1){
+            throw new Exception("Invalid Node ID");
+        }
+        else {
+            $paramArray[] = ' @NID=' . $nodeId;
+        }
+
+        $params = implode(',', $paramArray);
+        $stored_procedure_query = 'EXECUTE getRatedCommentsByNodeID ' . $params;
+        $result = db_query($stored_procedure_query);
+
+        $cidArray = array();
+
+        foreach ($result as $row){
+            $cidArray[$row->cid] = isset($row->UserRating) ? $row->UserRating : 0;
+            $arrCommentID[$row->cid] =
+                array('Thread' => $row->Thread,
+                    'UserRating' =>isset($row->UserRating) ? $row->UserRating : 0,
+                );
+        }
+
+        return $cidArray;
+
+    }catch(Exception $e){
+        watchdog_exception('Rated Comment',$e);
+    }
+}
