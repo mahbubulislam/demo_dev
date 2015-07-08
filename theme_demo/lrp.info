@@ -1,0 +1,40 @@
+name = LRP
+description = LRP Custom Theme
+package = Core
+version = 1.0
+core = 7.x
+
+
+
+;Region Declaration for Home Page
+
+regions[header] = Header
+regions[main_navigation] = Main Navigation
+regions[slideshow] = Slideshow
+regions[help] = Help
+
+regions[page_top] = Page top
+regions[page_bottom] = Page bottom
+regions[highlighted] = Highlighted
+
+regions[featured] = Featured
+regions[content] = Content
+regions[sidebar_first] = Sidebar first
+regions[sidebar_second] = Sidebar second
+regions[sidebar_news] = Sidebar news
+
+;Custom regions
+regions[sticky_nav] = Sticky Navigation Bar
+regions[page_panel] = Page Panel
+regions[left_sidebar] = Left Sidebar
+
+
+regions[footer] = Footer
+
+
+
+
+
+settings[shortcut_module_link] = 0
+
+
