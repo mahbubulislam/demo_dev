@@ -44,6 +44,12 @@ function search_demo_block_info() {
         'info' => t('FAQ Search Block'),
         'cache' => DRUPAL_NO_CACHE,
     );
+
+    $blocks['web_form_131'] = array(
+        'info' => t('Web Form'),
+        'cache' => DRUPAL_NO_CACHE,
+    );
+
     return $blocks;
 }
 
@@ -52,8 +58,57 @@ function search_demo_block_view($delta = '') {
     switch ($delta) {
         case 'faq_search':
             $block['title'] = 'Custom FAQ Search';
-            $block['content'] = drupal_render(drupal_get_form('search_demo_content_form'));
+
+            $search_form = drupal_get_form('search_demo_content_form');
+            $block['content'] = drupal_render($search_form);
+            break;
+        case 'web_form_131':
+            $block['title'] = 'Web Form';
+            $node = node_load(131);
+            $search_form = drupal_get_form('webform_client_form_131',$node);
+            $block['content'] = drupal_render($search_form);
             break;
     }
     return $block;
+}
+
+
+/**
+ * Implements hook_form_alter().
+ */
+function search_demo_form_alter(&$form, &$form_state, $form_id)
+{
+    if(strstr($form_id, 'webform_client_form_')) {
+        // get the nid so we can use it in the wrapper value
+        $nid = $form['#node']->nid;
+        // add the ajax properties to the submit button
+        $form['actions']['submit']['#ajax'] = array(
+            'callback' => 'mymodule_webform_js_submit',
+            'wrapper' => 'webform-client-form-' . $nid,
+            'method' => 'replace',
+            'effect' => 'fade',
+        );
+    }
+
+}
+
+function mymodule_webform_js_submit($form, $form_state) {
+    // define the $sid variable (submission id from webform)
+    $sid = $form_state['values']['details']['sid'];
+    // if we have a sid then we know the form was properly submitted, otherwise, we'll just return the existing $form array
+    if ($sid) {
+        // first we have to load up the webform node object
+        $node = node_load($form_state['values']['details']['nid']);
+        // create an array up with the confirmation message, retreived from the webform node
+        $confirmation = array(
+            '#type' => 'markup',
+            '#markup' => check_markup($node->webform['confirmation'], $node->webform['confirmation_format'], '', TRUE),
+        );
+        // return the confirmation message
+        return $confirmation;
+    }
+    else {
+        // return the form
+        return $form;
+    }
 }
