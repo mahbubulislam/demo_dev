@@ -1,0 +1,77 @@
+<?php
+
+function ajax_demo_1_menu()
+{
+$menu['after_ajax'] = array
+(
+'title' => 'After Ajax example',
+'page callback' => 'drupal_get_form',
+'page arguments' => array('after_ajax_form'),
+'access arguments' => array('access content'),
+);
+return $menu;
+}
+
+
+function after_ajax_form($form, &$form_state)
+{
+    // First we create a form element with AJAX enabled
+    $form['ajax_example'] = array
+    (
+        '#type' => 'select',
+        '#title' => t('Change me'),
+        // Note that I am setting the value and the display of the elements to be the same, for convenience sake in our callback function
+        '#options' => array(t('Select something') => t('Select something'), t('Something selected') => t('Something selected')),
+        '#prefix' => '<div id="after_ajax_element_wrapper">',
+        '#suffix' => '</div>',
+        '#ajax' => array
+        (
+            'callback' => 'after_ajax_ajax_callback',
+            'event' => 'change',
+        ),
+    );
+
+    // Next we add our JavaScript file, named after_ajax.js. This file
+    // lives in the /js folder inside our module:
+    $form['#attached']['js'] = array
+    (
+        array
+        (
+            'type' => 'file',
+            'data' => drupal_get_path('module', 'ajax_demo_1') . '/js/after_ajax.js',
+        ),
+    );
+    return $form;
+}
+
+function after_ajax_ajax_callback($form, &$form_state)
+{
+    // First, we initialize our $commands array. This array will
+    // contain each of the commands we want to fire for our
+    // #AJAX callback:
+    $commands = array();
+
+    // Next, we create our insert function that will insert our updated content
+    // back into the page. To do this, we use the system provided
+    // ajax_command_html() function. We pass this function two values:
+    // 1) Our AJAX wrapper (that we defined as the #prefix and #suffix of our form element)
+    // 2) The rendered HTML that needs to be inserted into the wrapper in the page.
+    $commands[] = ajax_command_html('#after_ajax_element_wrapper', render($form['ajax_example']));
+
+    // Next, we will use the system provided ajax_command_alert() function as an example to show it's
+    // working:
+    $commands[] = ajax_command_alert(t('ajax_command_alert() is working'));
+
+    // Next we will include a custom function that we will call ourselves in our JavaScript file:
+    $commands[] = array
+    (
+        // The command will be used in our JavaScript file (see next section)
+        'command' => 'afterAjaxCallbackExample',
+        // We pass the value that the user selected in the select element to our
+        // JavaScript function:
+        'selectedValue' => $form_state['values']['ajax_example'],
+    );
+
+    // And finally, we will return all of our commands to the system to be executed:
+    return array('#type' => 'ajax', '#commands' => $commands);
+}

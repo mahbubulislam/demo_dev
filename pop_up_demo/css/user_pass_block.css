@@ -1,0 +1,27 @@
+#block-pass-popup-custom-user-pass
+{
+    /* Hide the block */
+    display:none;
+
+    /* Center it on the page for when it is shown */
+    position: fixed;
+    height: 250px;
+    top: 50%;
+    margin-top: -125px; /* half of height (negative) */
+    width: 300px;
+    left: 50%;
+    margin-left: -150px; /* half of width (negative) */
+
+    /* Give it some styling to make it look nice */
+    background-color:#FFF;
+    border:solid black 3px;
+    border-radius:5px;
+    padding:10px;
+}
+
+/* Fix the width of the text field */
+#block-pass-popup-custom-user-pass .form-text
+{
+    width:100%;
+    box-sizing:border-box;
+}

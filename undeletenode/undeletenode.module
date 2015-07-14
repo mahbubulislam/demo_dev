@@ -1,0 +1,254 @@
+<?php
+
+	
+
+	function undeletenode_menu() {
+	
+		$items['undeletenode/%'] = array(
+									'page callback' => 'undelete_v2',
+									'page arguments' => array(1),
+									'access callback' => true,
+									//'access arguments' => array('administer ic n module'),							
+									);
+		$items['progressbar/test/%'] = array(
+											'title' => t('Progress Bar Test'),
+											'description' => t('Sync Admin Settings Form to set remote REST server information'),
+											'page callback' => 'drupal_get_form',
+											'page arguments' => array('progress_form',2),
+											'access callback' => true,
+											);
+		
+		$items['import/progress/%'] = array(
+											'title' => t('Import progress'),
+											'page callback' => 'import_progress',
+											'page arguments' => array(2),
+											'access callback' => TRUE,
+											'type' => MENU_CALLBACK,
+										);	
+		return $items;									
+	}
+	
+	
+	
+	function progress_form($form, &$form_state,$val)
+	{
+		
+		drupal_add_library('system', 'ui.dialog');
+		drupal_add_js('jQuery(document).ready(function(){jQuery("#dialog").dialog({ modal: true });});', 'inline');
+		
+		
+		$form_state['time'] = REQUEST_TIME;
+		$form['actions'] = array('#type' => 'actions');
+		$form['actions']['submit'] = array(
+			'#type' => 'submit',
+			'#value' => t('Save'),
+		  );
+		  $form['actions']['delete'] = array(
+			'#type' => 'button',
+			'#value' => t('Delete'),
+		  );
+		  
+			$query = array('tok' => drupal_get_token('delete_log_item'),) + drupal_get_destination();
+			$output = l(t('Delete'), 'admin/my-custom-log/delete/', array('query' => $query));
+		  
+		  $form['actions']['cancel'] = array(
+			'#markup' => $output  , //l(t('Cancel'), 'foo/bar'),
+		  );
+		$form['placeholder']= array(
+			'#markup' => '<div id="dialog" title="Drupal 7 jQuery UI Dialog Demo">
+				<p>jQuery UIs Dialogs are useful to get peoples attention before they read the pages content.  Note that this code is written for Drupal 7 and has to be modified for Drupal 6.</p>
+				</div><p id="ajaxResponse">'.$val.'</p>',
+			); 
+		$form['submit'] = array(
+						'#type' => 'submit',
+						'#value' => t('Import'),
+						'#ajax' => array(
+							'callback' => 'import_submit_callback',
+							'wrapper' => 'progress-form1',
+							'progress' => array(
+								'type' => 'bar',
+								'message' => t('Start..'),
+								'url' => url('import/progress/').$form_state['time'], //url to fetch current progress percentage
+								//'interval' => 4000, //progress bar will refresh in 1 second
+							)
+						),
+					);
+		$form_state['exval']=$val;			
+		return $form;			
+	}
+	
+	static $v;
+	function import_progress($time) {
+		global $v;
+			$v++;
+			$progress = array(
+						'message' => t('Starting import...'),
+						'percentage' => -1,
+						);
+
+			//$completed_percentage = 100; //variable_get('import_status'); // calculate progress percentage here
+			
+			$completed_percentage = variable_get('example_progressbar_' . $time, 0);
+			variable_set('example_progressbar_200',$v);
+			
+	/* 		if($completed_percentage >= 10) {
+				$progress['message'] = t('Done 10...');
+				$progress['percentage'] = $completed_percentage ;
+			}
+			
+			if($completed_percentage >= 40) {
+				$progress['message'] = t('Done 40...');
+				$progress['percentage'] = $completed_percentage ;
+			}
+			
+			if($completed_percentage >= 70) {
+				$progress['message'] = t('Done 70...');
+				$progress['percentage'] = $completed_percentage ;
+			}			
+			
+			
+			if($completed_percentage>=90) {
+				$progress['message'] = t('Done...%p',array('%p'=> $completed_percentage));
+				$progress['percentage'] = $completed_percentage ;
+			} */
+			
+			if($completed_percentage) {
+				$progress['message'] = t('Done...%p',array('%p'=> $completed_percentage));
+				$progress['percentage'] = $completed_percentage ;
+			}
+
+			drupal_json_output($progress);
+	}
+	
+	function import_submit_callback($form, &$form_state) {
+	
+	//print_r("")
+		
+		$variable_name = 'example_progressbar_' . $form_state['time'];
+		$commands = array();
+
+		variable_set($variable_name, 10);
+		sleep(2);
+		
+		
+		f1($variable_name);
+		f2($variable_name);
+		f3($variable_name);
+		
+		variable_set($variable_name, 95);
+		sleep(2);
+		variable_del($variable_name);
+
+		$commands[] = ajax_command_html('#ajaxResponse', t('Execution Done!').$form_state['exval']);
+
+		return array(
+			'#type' => 'ajax',
+			'#commands' => $commands,
+		  );
+	}
+
+	function undeletenode_node_insert($node) {
+	  dsm($node);
+	}
+	
+	
+	function f1($variable_name)
+	{
+		variable_set($variable_name, 40);
+		sleep(2);
+		variable_set($variable_name, 50);
+		sleep(2);
+		variable_set($variable_name, 60);
+		sleep(2);
+	}
+	
+	function f2($variable_name)
+	{
+		variable_set($variable_name, 70);
+		sleep(2);
+	}
+	
+	function f3($variable_name)
+	{
+		variable_set($variable_name, 90);
+		sleep(2);
+	}
+	
+	function undeletenode_node_update($node) {
+     // Provides the "updated" values
+     dsm($node);
+     $loaded_node = node_load($node->nid);
+     // Provides the old values, which shouldn't be there according
+     // to the documentation above
+     dsm($loaded_node);
+}
+	
+	function undeletenode_node_view($node, $view_mode, $langcode) {
+	  //krumo($node);
+	}
+	function undelete_v2($revid) {
+	  $result = db_query("SELECT * FROM {recover} WHERE rid = ?", array((int) $revid))->fetchObject();
+	  
+    if ($result) {
+		
+		dsm(unserialize($result->data));
+      $type = $result->type;
+      // Let's just pretend this is another function for handling nodes and be lazy
+
+      if (empty($result->data)) {
+        // Some impossible action occured that removed this node, and we will duplicate it.
+        node_delete($result->riid);
+        return TRUE; // All's well that ends well.
+      }
+
+      $node = unserialize($result->data);
+      $original = node_load($result->riid);
+	  dsm($result->riid);
+		dsm($original);
+      if ($original !== FALSE) {
+        $node->original = $original;
+        $node->is_new   = 0;
+		dsm("Update Existing");
+      }
+      else {
+        $node->original = $node;
+        $node->is_new   = 1;
+		dsm("Create New");
+      }
+	/* $node->original = $node;
+        $node->is_new   = 1; */
+      // A restored deleted node counts as an 'insert' to NodeAPI.
+	 dsm($node->path['alias']); 
+     node_save($node);
+	 cache_clear_all();
+    }
+    else {
+      drupal_set_message(t("Could not recover item #%rid, as the item to recover does not exist.", array('%rid' => $revid)));
+    }
+	return $revid;
+	}
+	
+	function undelete_node($nid) {
+	
+	  //$ser_node=unserialize('O:8:"stdClass":43:{s:3:"vid";i:5;s:3:"uid";s:1:"1";s:5:"title";s:13:"Test Content ";s:3:"log";s:0:"";s:6:"status";s:1:"1";s:7:"comment";s:1:"2";s:7:"promote";s:1:"0";s:6:"sticky";s:1:"0";s:3:"nid";i:5;s:4:"type";s:16:"my_new_page_type";s:8:"language";s:3:"und";s:7:"created";s:10:"1414437886";s:7:"changed";i:1414437985;s:4:"tnid";s:1:"0";s:9:"translate";s:1:"0";s:18:"revision_timestamp";s:10:"1414437928";s:12:"revision_uid";s:1:"1";s:4:"body";a:1:{s:3:"und";a:1:{i:0;a:5:{s:5:"value";s:13:"Test Content ";s:7:"summary";s:0:"";s:6:"format";s:13:"filtered_html";s:10:"safe_value";s:20:"<p>Test Content</p>";s:12:"safe_summary";s:0:"";}}}s:13:"field_newbody";a:1:{s:3:"und";a:1:{i:0;a:5:{s:5:"value";s:13:"Test Content ";s:7:"summary";s:0:"";s:6:"format";s:13:"filtered_html";s:10:"safe_value";s:20:"<p>Test Content</p>";s:12:"safe_summary";s:0:"";}}}s:22:"field_date_of_creation";a:1:{s:3:"und";a:1:{i:0;a:4:{s:5:"value";s:19:"2014-10-17 19:30:00";s:8:"timezone";s:16:"America/New_York";s:11:"timezone_db";s:3:"UTC";s:9:"date_type";s:8:"datetime";}}}s:11:"rdf_mapping";a:9:{s:7:"rdftype";a:2:{i:0;s:9:"sioc:Item";i:1;s:13:"foaf:Document";}s:5:"title";a:1:{s:10:"predicates";a:1:{i:0;s:8:"dc:title";}}s:7:"created";a:3:{s:10:"predicates";a:2:{i:0;s:7:"dc:date";i:1;s:10:"dc:created";}s:8:"datatype";s:12:"xsd:dateTime";s:8:"callback";s:12:"date_iso8601";}s:7:"changed";a:3:{s:10:"predicates";a:1:{i:0;s:11:"dc:modified";}s:8:"datatype";s:12:"xsd:dateTime";s:8:"callback";s:12:"date_iso8601";}s:4:"body";a:1:{s:10:"predicates";a:1:{i:0;s:15:"content:encoded";}}s:3:"uid";a:2:{s:10:"predicates";a:1:{i:0;s:16:"sioc:has_creator";}s:4:"type";s:3:"rel";}s:4:"name";a:1:{s:10:"predicates";a:1:{i:0;s:9:"foaf:name";}}s:13:"comment_count";a:2:{s:10:"predicates";a:1:{i:0;s:16:"sioc:num_replies";}s:8:"datatype";s:11:"xsd:integer";}s:13:"last_activity";a:3:{s:10:"predicates";a:1:{i:0;s:23:"sioc:last_activity_date";}s:8:"datatype";s:12:"xsd:dateTime";s:8:"callback";s:12:"date_iso8601";}}s:3:"cid";s:1:"0";s:22:"last_comment_timestamp";s:10:"1414437886";s:17:"last_comment_name";N;s:16:"last_comment_uid";s:1:"1";s:13:"comment_count";s:1:"0";s:4:"name";s:5:"admin";s:7:"picture";s:1:"0";s:4:"data";s:4:"b:0;";s:18:"print_html_display";i:1;s:26:"print_html_display_comment";i:0;s:26:"print_html_display_urllist";i:1;s:18:"print_mail_display";i:1;s:26:"print_mail_display_comment";i:0;s:26:"print_mail_display_urllist";i:1;s:17:"print_pdf_display";i:1;s:25:"print_pdf_display_comment";i:0;s:25:"print_pdf_display_urllist";i:1;s:14:"print_pdf_size";s:0:"";s:21:"print_pdf_orientation";s:0:"";s:8:"original";r:1;s:6:"is_new";i:1;s:9:"timestamp";i:1414437985;}');
+	 $node=node_load(5);
+	 
+	// $node->nid=11;
+	 $ser_node_v1=serialize($node);
+	 //print serialize($node);
+	  $result = db_query("SELECT * FROM {recover} WHERE rid = ?", array(11))->fetchObject();
+	 
+	//$serObj='O:1:"a":1:{s:5:"value";s:3:"100";}';
+	//$retNode=unserialize($ser_node);
+	//krumo ($ser_node);
+	
+	krumo(unserialize($ser_node_v1));
+	krumo(unserialize($result->data));
+	
+	$nodev1=unserialize($ser_node_v1);
+	$nodev2=unserialize($result->data);
+	node_save($nodev2);
+	//print $result->data;
+	return $nid;
+	}
+	

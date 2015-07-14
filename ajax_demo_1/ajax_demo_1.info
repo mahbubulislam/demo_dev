@@ -1,0 +1,5 @@
+name = AJAX Demo Call custom function
+description = AJAX Demo Call custom function
+package = NETE
+version = 1.0
+core = 7.x

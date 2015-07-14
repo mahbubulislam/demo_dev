@@ -1,0 +1,163 @@
+<?php
+
+function pop_up_demo_forms($form_id, $args)
+{
+    $forms = array();
+    // First we check if the form ID is equal to our alias
+    if($form_id == 'pass_popup_user_pass')
+    {
+        // The user_pass() function is in the file user.pages.inc, which
+        // is not included by default. As such, we need to manually include
+        // it so our callback will work:
+        module_load_include('inc', 'user', 'user.pages');
+
+        // Nest we tell Drupal to use the user_pass form for this form ID
+        $forms['pass_popup_user_pass'] = array
+        (
+            'callback' => 'user_pass',
+        );
+    }
+
+    return $forms;
+}
+
+
+function pass_popup_user_pass_validate($form, &$form_state){
+
+}
+
+function pass_popup_user_pass_submit($form, &$form_state){
+
+}
+
+/*function pop_up_demo_form_pass_popup_user_pass_alter(&$form, &$form_state)
+{
+    // Create the placeholder from the field title
+    $form['name']['#attributes']['placeholder'] = $form['name']['#title'];
+
+    // We want to ensure that user.pages.inc is included whenever
+    // any step of the form happens, as this contains the validation and
+    // submission functions for the user_pass() form:
+    form_load_include($form_state, 'inc', 'user', 'user.pages');
+}*/
+
+function pop_up_demo_form_pass_popup_user_pass_alter(&$form, &$form_id)
+{
+    // First, we will create a unique ID that can be used as a wrapper for the form. We could hard-code an
+    // ID, however I prefer to use something that will be unique every time the form is called, on the off chance
+    // that we someday want to use the same form multiple times on a single page. The #build_id of each form
+    // is unique, and as such, we can use it to generate a unique form wrapper:
+    $unique_key = 'form-wrapper-' . $form['#build_id'];
+
+    // Now we can add a wrapper to our entire form, that will be used as our ajax wrappre:
+    $form['#prefix'] = '<div id="' . $unique_key . '">';
+    $form['#suffix'] = '</div>';
+
+    // And finally we will ajaxify our submit button:
+    $form['actions']['submit']['#ajax'] = array
+    (
+        // We pass the ID of our form wrapper as the ajax wrapper
+        'wrapper' => $unique_key,
+        // We will get to this callback in the last step of the tutorial
+        'callback' => 'popup_pass_user_pass_ajax_submit',
+    );
+}
+
+function popup_pass_user_pass_ajax_submit($form, &$form_state)
+{
+    $commands = array();
+
+    // 1) Check if there were any errors in submitting the form. If there were not, we
+    //    will hide the block, as the user does not need to see it anymore. This will be done using
+    //    the custom command we defined in our JS file in step 6
+
+    // Get any messages. Make sure to pass FALSE as the second argument, as we want to be able
+    // to render these messages later
+    $messages = drupal_get_messages(NULL, FALSE);
+    // We will execute our command if there are no error messages
+    if(!count($messages) || !isset($messages['error']) || !count($messages['error']))
+    {
+        // There were no error messages, so we add the command to hide the block
+        $commands[] = array
+        (
+            'command' => 'passThemeHidePassPopup',
+        );
+    }
+
+
+    // 2) Re-render the form, and replace the original form with the new re-rendered form.
+    //    In the event that there was a validation error, the re-rendered form will show the error fields,
+    //    and if there were no validation errors and the form was submitted, a fresh form will be shown
+    //    to the user. We also want to prepend any messages that were created, so the user can see
+    //    any success/failure messages
+
+    // The core-provided ajax_command_replace() is used, and NULL is passed as the selector, meaning
+    // that the selector we defined in our #ajax will be used. The replacement value is our rendered form.
+    $commands[] = ajax_command_replace(NULL, theme('status_messages') . render($form));
+
+    // 3) Return our ajax commands
+    return array('#type' => 'ajax', '#commands' => $commands);
+}
+
+function pop_up_demo_block_info()
+{
+    // First, we define our block
+    $blocks['custom_user_pass'] = array
+    (
+        // This title will show up on the block admin page
+        'info' => t('Password Reset Block'),
+    );
+
+    return $blocks;
+}
+
+function pop_up_demo_block_view($delta = '')
+{
+    // Next, we create the content of our block
+    if($delta == 'custom_user_pass')
+    {
+        $block = array
+        (
+            // The subject will be the title of the block as shown to the user
+            'subject' => t('Password Reset'),
+            'content' => array
+            (
+                // We use an arbitrary key here. This will be explained in the comments
+                // after the code
+                'custom_user_pass_block' => array
+                (
+                    // We use our aliased form ID to create a form, that become the contents
+                    // of the block.
+                    'form' => drupal_get_form('pass_popup_user_pass'),
+                ),
+            ),
+        );
+
+        return $block;
+    }
+}
+
+
+
+function pop_up_demo_block_view_pop_up_demo_custom_user_pass_alter(&$data, $block)
+{
+    // We only want to attach the files if the block has been rendered on the page. So we check if $data is equal to TRUE.
+    if($data)
+    {
+        // The block is to be shown on the page, so we will add our CSS and JS
+
+        // Get the path to our theme, as our CSS and JS file will be in the theme
+        $path = drupal_get_path('module', 'pop_up_demo');
+        $data['content']['#attached']['css'][] = array
+        (
+            'type' => 'file',
+            'data' => $path . '/css/user_pass_block.css',
+        );
+        $data['content']['#attached']['js'][] = array
+        (
+            'type' => 'file',
+            'data' => $path . '/js/user_pass_block.js',
+        );
+    }
+}
+

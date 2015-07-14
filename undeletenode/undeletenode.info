@@ -1,0 +1,4 @@
+name = Undo Node Delete
+description = This module will Recover a deleted node
+package = NETE
+core = 7.x
